@@ -227,49 +227,36 @@ class SimpleJiraEnhancer:
 
         return self.llama_enhancer.enhance_ticket(issue, custom_instructions)
 
-    def _print_issue(self, issue, enhancement_result: Optional[Dict[str, Any]] = None, mode: str = "preview"):
+    def to_string(self, issue) -> str:
         """
-        Print issue details and enhancement results
+        Convert issue to formatted string representation
 
         Args:
-            issue: jira.Issue object
-            enhancement_result: Optional enhancement result dict
-            mode: "preview" or "update" to customize the output
+            issue: jira.Issue object or ticket key string
+
+        Returns:
+            Formatted string representation of the issue
         """
-        mode_prefix = "🎫 ENHANCEMENT PREVIEW FOR" if mode == "preview" else "🎫 PROCESSING"
-        print(f"\n{mode_prefix} {issue['key']}")
-        print("=" * 50)
+        # Convert string to issue object if needed
+        if isinstance(issue, str):
+            issue = self.get_issue(issue)
 
-        # Show original issue details
         fields = issue['fields']
-        print(f"📋 Title: {fields.get('summary', 'No title')}")
-        print(f"🏷️  Type: {fields.get('issuetype', {}).get('name', 'Unknown')}")
-        print(
-            f"⚡ Priority: {fields.get('priority', {}).get('name', 'Not set') if fields.get('priority') else 'Not set'}")
-
         original_desc = fields.get('description', '')
-        print(f"\n📝 CURRENT DESCRIPTION ({len(original_desc)} chars):")
-        print("-" * 30)
-        if original_desc:
-            print(original_desc)
-        else:
-            print("(No description)")
+        enhanced_desc = fields.get('enhanced_description', '')
 
-        # Show enhancement results if provided
-        if enhancement_result:
-            if enhancement_result['success']:
-                enhanced_desc = enhancement_result['enhanced_description']
-                print(f"\n✨ ENHANCED DESCRIPTION ({len(enhanced_desc)} chars):")
-                print("-" * 30)
-                print(enhanced_desc)
-
-                print(f"\n📊 ENHANCEMENT SUMMARY:")
-                print(f"   • Original length: {len(original_desc)} characters")
-                print(f"   • Enhanced length: {len(enhanced_desc)} characters")
-                print(
-                    f"   • Change: {'+' if len(enhanced_desc) > len(original_desc) else ''}{len(enhanced_desc) - len(original_desc)} characters")
-            else:
-                print(f"\n❌ Enhancement failed: {enhancement_result['error']}")
+        result = f"\n🎫 ISSUE {issue['key']}\n"
+        result += "=" * 50 + "\n"
+        result += f"📋 Title: {fields.get('summary', 'No title')}\n"
+        result += f"🏷️  Type: {fields.get('issuetype', {}).get('name', 'Unknown')}\n"
+        result += f"⚡ Priority: {fields.get('priority', {}).get('name', 'Not set') if fields.get('priority') else 'Not set'}\n"
+        result += f"\n📝 DESCRIPTION ({len(original_desc)} chars):\n"
+        result += "-" * 30 + "\n"
+        result += original_desc
+        if enhanced_desc:
+            result += f"\n📝 ENHANCED DESCRIPTION ({len(enhanced_desc)} chars):\n"
+            result += enhanced_desc
+        return result
 
     def preview_enhancement(self, issue, custom_instructions: str = ""):
         """
@@ -283,12 +270,28 @@ class SimpleJiraEnhancer:
         if isinstance(issue, str):
             issue = self.get_issue(issue)
 
+        # Print current issue
+        print(self.to_string(issue))
+
         # Get enhancement
         print(f"\n🤖 ENHANCING WITH LLAMA...")
         enhancement_result = self.enhance_issue_description(issue, custom_instructions)
 
-        # Print issue details and enhancement
-        self._print_issue(issue, enhancement_result, mode="preview")
+        if enhancement_result['success']:
+            enhanced_desc = enhancement_result['enhanced_description']
+            original_desc = issue['fields'].get('description', '')
+
+            print(f"\n✨ ENHANCED DESCRIPTION ({len(enhanced_desc)} chars):")
+            print("-" * 30)
+            print(enhanced_desc)
+
+            print(f"\n📊 ENHANCEMENT SUMMARY:")
+            print(f"   • Original length: {len(original_desc)} characters")
+            print(f"   • Enhanced length: {len(enhanced_desc)} characters")
+            print(
+                f"   • Change: {'+' if len(enhanced_desc) > len(original_desc) else ''}{len(enhanced_desc) - len(original_desc)} characters")
+        else:
+            print(f"\n❌ Enhancement failed: {enhancement_result['error']}")
 
     def update_issue_description(self, issue, enhanced_description: str) -> Tuple[bool, str]:
         """
@@ -335,10 +338,11 @@ class SimpleJiraEnhancer:
         else:
             issue_key = issue['key']
 
-        # Enhance and print issue details
-        print(f"\n🤖 ENHANCING WITH LLAMA...")
+        # Print current issue
+        print(self.to_string(issue))
+
+        # Enhance
         enhancement_result = self.enhance_issue_description(issue, custom_instructions)
-        self._print_issue(issue, enhancement_result, mode="update")
 
         if not enhancement_result['success']:
             return False, f"❌ Enhancement failed for {issue_key}: {enhancement_result['error']}"

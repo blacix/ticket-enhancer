@@ -260,6 +260,39 @@ class JiraConnectApp:
                 'timestamp': time.time()
             })
 
+        @self.app.route('/demo')
+        def demo():
+            """Demo endpoint that enhances a specific DIGI ticket"""
+            try:
+                server_url = os.getenv('JIRA_SERVER_URL')
+                enhancer = self._create_enhancer_for_tenant(server_url)
+
+                # Use a specific DIGI ticket for demo
+                ticket_key = "DIGI-894"  # Replace with actual ticket key
+
+                # Enhance the ticket
+                result = enhancer.enhance_issue_description(ticket_key)
+
+                if result['success']:
+                    return jsonify({
+                        'success': True,
+                        'ticket_key': ticket_key,
+                        'enhanced_description': result['enhanced_description']
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': result['error']
+                    }), 500
+
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
+
+
+
     def jwt_required(self, f):
         """Decorator to verify JWT tokens from Jira"""
 
