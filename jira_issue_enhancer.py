@@ -227,22 +227,20 @@ class SimpleJiraEnhancer:
 
         return self.llama_enhancer.enhance_ticket(issue, custom_instructions)
 
-    def preview_enhancement(self, issue, custom_instructions: str = ""):
+    def _print_issue(self, issue, enhancement_result: Optional[Dict[str, Any]] = None, mode: str = "preview"):
         """
-        Preview enhancement without updating the ticket
+        Print issue details and enhancement results
 
         Args:
-            issue: jira.Issue object or ticket key string
-            custom_instructions: Additional instructions for enhancement
+            issue: jira.Issue object
+            enhancement_result: Optional enhancement result dict
+            mode: "preview" or "update" to customize the output
         """
-        # Convert string to issue object if needed
-        if isinstance(issue, str):
-            issue = self.get_issue(issue)
-
-        print(f"\n🎫 ENHANCEMENT PREVIEW FOR {issue['key']}")
+        mode_prefix = "🎫 ENHANCEMENT PREVIEW FOR" if mode == "preview" else "🎫 PROCESSING"
+        print(f"\n{mode_prefix} {issue['key']}")
         print("=" * 50)
 
-        # Show original
+        # Show original issue details
         fields = issue['fields']
         print(f"📋 Title: {fields.get('summary', 'No title')}")
         print(f"🏷️  Type: {fields.get('issuetype', {}).get('name', 'Unknown')}")
@@ -257,23 +255,40 @@ class SimpleJiraEnhancer:
         else:
             print("(No description)")
 
+        # Show enhancement results if provided
+        if enhancement_result:
+            if enhancement_result['success']:
+                enhanced_desc = enhancement_result['enhanced_description']
+                print(f"\n✨ ENHANCED DESCRIPTION ({len(enhanced_desc)} chars):")
+                print("-" * 30)
+                print(enhanced_desc)
+
+                print(f"\n📊 ENHANCEMENT SUMMARY:")
+                print(f"   • Original length: {len(original_desc)} characters")
+                print(f"   • Enhanced length: {len(enhanced_desc)} characters")
+                print(
+                    f"   • Change: {'+' if len(enhanced_desc) > len(original_desc) else ''}{len(enhanced_desc) - len(original_desc)} characters")
+            else:
+                print(f"\n❌ Enhancement failed: {enhancement_result['error']}")
+
+    def preview_enhancement(self, issue, custom_instructions: str = ""):
+        """
+        Preview enhancement without updating the ticket
+
+        Args:
+            issue: jira.Issue object or ticket key string
+            custom_instructions: Additional instructions for enhancement
+        """
+        # Convert string to issue object if needed
+        if isinstance(issue, str):
+            issue = self.get_issue(issue)
+
         # Get enhancement
         print(f"\n🤖 ENHANCING WITH LLAMA...")
         enhancement_result = self.enhance_issue_description(issue, custom_instructions)
 
-        if enhancement_result['success']:
-            enhanced_desc = enhancement_result['enhanced_description']
-            print(f"\n✨ ENHANCED DESCRIPTION ({len(enhanced_desc)} chars):")
-            print("-" * 30)
-            print(enhanced_desc)
-
-            print(f"\n📊 ENHANCEMENT SUMMARY:")
-            print(f"   • Original length: {len(original_desc)} characters")
-            print(f"   • Enhanced length: {len(enhanced_desc)} characters")
-            print(
-                f"   • Change: {'+' if len(enhanced_desc) > len(original_desc) else ''}{len(enhanced_desc) - len(original_desc)} characters")
-        else:
-            print(f"\n❌ Enhancement failed: {enhancement_result['error']}")
+        # Print issue details and enhancement
+        self._print_issue(issue, enhancement_result, mode="preview")
 
     def update_issue_description(self, issue, enhanced_description: str) -> Tuple[bool, str]:
         """
@@ -320,8 +335,10 @@ class SimpleJiraEnhancer:
         else:
             issue_key = issue['key']
 
-        # Enhance
+        # Enhance and print issue details
+        print(f"\n🤖 ENHANCING WITH LLAMA...")
         enhancement_result = self.enhance_issue_description(issue, custom_instructions)
+        self._print_issue(issue, enhancement_result, mode="update")
 
         if not enhancement_result['success']:
             return False, f"❌ Enhancement failed for {issue_key}: {enhancement_result['error']}"
@@ -335,7 +352,7 @@ class SimpleJiraEnhancer:
 
 def load_from_env() -> SimpleJiraEnhancer:
     """Load configuration from environment variables"""
-    required_vars = ['JIRA_SERVER_URL', 'JIRA_USERNAME', 'JIRA_API_TOKEN']
+    required_vars = ['JIRA_SERVER_URL', 'JIRA_SERVICE_ACCOUNT_EMAIL', 'JIRA_SERVICE_ACCOUNT_TOKEN']
     missing = [var for var in required_vars if not os.getenv(var)]
 
     if missing:
@@ -343,8 +360,8 @@ def load_from_env() -> SimpleJiraEnhancer:
 
     return SimpleJiraEnhancer(
         server_url=os.getenv('JIRA_SERVER_URL'),
-        username=os.getenv('JIRA_USERNAME'),
-        api_token=os.getenv('JIRA_API_TOKEN')
+        username=os.getenv('JIRA_SERVICE_ACCOUNT_EMAIL'),
+        api_token=os.getenv('JIRA_SERVICE_ACCOUNT_TOKEN')
     )
 
 
