@@ -22,8 +22,19 @@ class JiraConnectApp:
 
     def __init__(self):
         self.app = Flask(__name__)
-        self.installed_tenants = {}  # Store installation data
+        self.installed_tenants = self.load_tenants()
         self.setup_routes()
+
+    def load_tenants(self):
+        try:
+            with open('tenants.json', 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
+
+    def save_tenants(self):
+        with open('tenants.json', 'w') as f:
+            json.dump(self.installed_tenants, f)
 
     def setup_routes(self):
         """Setup all Flask routes"""
@@ -87,6 +98,7 @@ class JiraConnectApp:
                     'base_url': base_url,
                     'installed_at': time.time()
                 }
+                self.save_tenants()
 
                 print(f"✅ App installed for tenant: {client_key}")
                 return '', 204
@@ -291,7 +303,29 @@ class JiraConnectApp:
                     'error': str(e)
                 }), 500
 
+        @self.app.route('/test-auth')
+        @self.jwt_required
+        def test_auth():
+            payload = getattr(request, 'jwt_payload', {})
+            return jsonify({
+                'authenticated': True,
+                'user': payload.get('sub'),
+                'tenant': payload.get('iss')
+            })
 
+        @self.app.route('/descriptor')
+        def serve_file():
+            """Serve the app descriptor from a JSON file on disk"""
+            try:
+                with open('atlassian-connect.json', 'r') as f:
+                    descriptor = json.load(f)
+                return jsonify(descriptor)
+            except FileNotFoundError:
+                return jsonify({'error': 'App descriptor not found'}), 404
+            except json.JSONDecodeError as e:
+                return jsonify({'error': f'Invalid JSON in descriptor: {str(e)}'}), 500
+            except Exception as e:
+                return jsonify({'error': f'Failed to load descriptor: {str(e)}'}), 500
 
     def jwt_required(self, f):
         """Decorator to verify JWT tokens from Jira"""

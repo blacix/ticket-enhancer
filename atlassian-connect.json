@@ -1,0 +1,39 @@
+{
+  "name": "LLM Ticket Enhancer",
+  "description": "Enhance Jira tickets using local LLM",
+  "key": "nowtech-llm-ticket-enhancer",
+  "baseUrl": "http://86.101.103.229:5000",
+  "vendor": {
+    "name": "NowTechnolgies",
+    "url": "https://nowtech.hu"
+  },
+  "authentication": {
+    "type": "jwt"
+  },
+  "lifecycle": {
+    "installed": "/installed",
+    "uninstalled": "/uninstalled"
+  },
+  "scopes": [
+    "READ",
+    "WRITE"
+  ],
+  "modules": {
+    "webPanels": [
+      {
+        "key": "enhancement-panel",
+        "location": "atl.jira.view.issue.right.context",
+        "name": {
+          "value": "LLM Enhancement"
+        },
+        "url": "/panel?issueKey={issue.key}",
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          }
+        ]
+      }
+    ]
+  },
+  "apiVersion": 1
+}
