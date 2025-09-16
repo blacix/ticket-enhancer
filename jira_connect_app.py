@@ -4,6 +4,10 @@ Jira Connect App for LLM Ticket Enhancement
 Integrates with existing SimpleJiraEnhancer without modifying existing classes
 """
 
+
+
+
+
 import os
 import json
 import jwt
