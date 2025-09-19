@@ -178,7 +178,7 @@ Please enhance this ticket description now:"""
         return '\n'.join(description_lines).strip()
 
 
-class SimpleJiraEnhancer:
+class JiraIssueEnhancer:
     """Simplified Jira ticket enhancer using atlassian-python-api"""
 
     def __init__(self, server_url: str, username: str, api_token: str):
@@ -354,7 +354,7 @@ class SimpleJiraEnhancer:
         return success, message
 
 
-def load_from_env() -> SimpleJiraEnhancer:
+def load_from_env() -> JiraIssueEnhancer:
     """Load configuration from environment variables"""
     required_vars = ['JIRA_SERVER_URL', 'JIRA_SERVICE_ACCOUNT_EMAIL', 'JIRA_SERVICE_ACCOUNT_TOKEN']
     missing = [var for var in required_vars if not os.getenv(var)]
@@ -362,7 +362,7 @@ def load_from_env() -> SimpleJiraEnhancer:
     if missing:
         raise ValueError(f"Missing environment variables: {', '.join(missing)}")
 
-    return SimpleJiraEnhancer(
+    return JiraIssueEnhancer(
         server_url=os.getenv('JIRA_SERVER_URL'),
         username=os.getenv('JIRA_SERVICE_ACCOUNT_EMAIL'),
         api_token=os.getenv('JIRA_SERVICE_ACCOUNT_TOKEN')

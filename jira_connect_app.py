@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional
 from functools import wraps
 
 # Import existing enhancer (assumes it's in the same directory or Python path)
-from jira_issue_enhancer import SimpleJiraEnhancer, LlamaJiraEnhancer
+from jira_issue_enhancer import JiraIssueEnhancer, LlamaJiraEnhancer
 
 
 class JiraConnectApp:
@@ -365,7 +365,7 @@ class JiraConnectApp:
 
         return decorated_function
 
-    def _create_enhancer_for_tenant(self, base_url: str) -> SimpleJiraEnhancer:
+    def _create_enhancer_for_tenant(self, base_url: str) -> JiraIssueEnhancer:
         """Create enhancer instance for a specific tenant"""
         # In production, store tenant-specific credentials securely
         # For demo, using environment variables as fallback
@@ -380,7 +380,7 @@ class JiraConnectApp:
         if not all([server_url, username, api_token]):
             raise ValueError("Missing Jira credentials for tenant")
 
-        return SimpleJiraEnhancer(
+        return JiraIssueEnhancer(
             server_url=server_url,
             username=username,
             api_token=api_token
