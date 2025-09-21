@@ -1,0 +1,38 @@
+{
+   "name":"Ticket Enhancer",
+   "description":"Enhance Jira tickets using local LLM",
+   "key":"ticket-enhancer",
+   "baseUrl":"https://domain.com",
+   "vendor":{
+      "name":"Company",
+      "url":"https://domain.com"
+   },
+   "authentication":{
+      "type":"none"
+   },
+   "lifecycle":{
+      "installed":"/installed",
+      "uninstalled":"/uninstalled"
+   },
+   "scopes":[
+      "READ",
+      "WRITE"
+   ],
+   "modules":{
+      "jiraIssueTabPanels":[
+         {
+            "key":"enahnce-panel-key",
+            "name":{
+               "value":"Enhancement Panel"
+            },
+            "url":"/panel?issueKey={issue.key}",
+            "conditions":[
+               {
+                  "condition":"user_is_logged_in"
+               }
+            ],
+            "weight":100
+         }
+      ]
+   }
+}
