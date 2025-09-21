@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LLM Enhancement</title>
+    <script src="https://connect-cdn.atl-paas.net/all.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            height: 100%; 
+            overflow: auto;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            padding: 24px; 
+            min-height: 800px;
+        }
+        .container {
+            max-width: 100%;
+            width: 100%;
+        }
+        h3 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #172B4D;
+            margin-bottom: 20px;
+        }
+        .btn { 
+            background: #0052cc; 
+            color: white; 
+            border: none; 
+            padding: 14px 28px; 
+            cursor: pointer; 
+            border-radius: 3px;
+            margin: 10px 10px 10px 0;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .btn:hover { background: #0065ff; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .result { 
+            margin-top: 30px; 
+            padding: 20px; 
+            border-radius: 3px;
+        }
+        .success { 
+            background: #e3fcef; 
+            border: 2px solid #00875a; 
+            color: #006644;
+        }
+        .error { 
+            background: #ffebe6; 
+            border: 2px solid #de350b; 
+            color: #bf2600;
+        }
+        .loading { 
+            color: #6b778c; 
+            font-style: italic;
+            font-size: 16px;
+        }
+        pre { 
+            background: #f4f5f7; 
+            padding: 20px; 
+            border-radius: 3px; 
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'SFMono-Medium', 'SF Mono', 'Segoe UI Mono', 'Roboto Mono', monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            margin: 10px 0;
+        }
+        .issue-info {
+            background: #f4f5f7;
+            padding: 16px 20px;
+            border-radius: 3px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        h4 {
+            margin-top: 0;
+            color: #172B4D;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>🤖 AI Ticket Enhancement</h3>
+        <div class="issue-info">
+            <strong>Issue:</strong> <span id="issueKey"></span>
+        </div>
+
+        <button class="btn" id="previewBtn" onclick="previewEnhancement()">👁️ Preview Enhancement</button>
+        <button class="btn" id="applyBtn" onclick="applyEnhancement()">✨ Apply Enhancement</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // These will be replaced by Python when serving the file
+        const ISSUE_KEY = '{{ISSUE_KEY}}';
+        const APP_BASE_URL = '{{APP_BASE_URL}}';
+
+        // Display issue key
+        document.getElementById('issueKey').textContent = ISSUE_KEY;
+
+        function resizePanel() {
+            if (typeof AP !== 'undefined' && AP.resize) {
+                const height = Math.max(800, document.body.scrollHeight + 60);
+                console.log('Resizing panel to:', height + 'px');
+                AP.resize('100%', height + 'px');
+            }
+        }
+
+        AP.register({
+            init: function(data) {
+                console.log('Panel initialized');
+                setTimeout(resizePanel, 100);
+            }
+        });
+
+        function disableButtons(disabled) {
+            document.getElementById('previewBtn').disabled = disabled;
+            document.getElementById('applyBtn').disabled = disabled;
+        }
+
+        function showResult(message, type) {
+            const result = document.getElementById('result');
+            result.className = 'result ' + type;
+            result.innerHTML = message;
+            setTimeout(resizePanel, 200);
+        }
+
+        function previewEnhancement() {
+            showResult('🔄 Generating preview...', 'loading');
+            disableButtons(true);
+
+            const url = APP_BASE_URL + '/enhance?action=preview&issueKey=' + ISSUE_KEY;
+            
+            console.log('Calling:', url);
+
+            AP.request({
+                url: url,
+                type: 'GET',
+                success: function(data) {
+                    disableButtons(false);
+                    console.log('Response:', data);
+                    
+                    try {
+                        const response = typeof data === 'string' ? JSON.parse(data) : data;
+                        
+                        if (response.success) {
+                            showResult(
+                                '<h4>✨ Enhanced Description:</h4><pre>' + 
+                                escapeHtml(response.enhanced_description) + 
+                                '</pre>',
+                                'success'
+                            );
+                        } else {
+                            showResult('❌ Preview failed: ' + (response.error || 'Unknown error'), 'error');
+                        }
+                    } catch (e) {
+                        showResult('❌ Failed to parse response: ' + e.message, 'error');
+                        console.error('Parse error:', e, 'Data:', data);
+                    }
+                },
+                error: function(xhr, statusText, errorThrown) {
+                    disableButtons(false);
+                    console.error('Request failed:', xhr, statusText, errorThrown);
+                    showResult('❌ Request failed: ' + (statusText || 'Unknown error'), 'error');
+                }
+            });
+        }
+
+        function applyEnhancement() {
+            if (!confirm('Apply enhancement to this ticket?')) return;
+
+            showResult('🔄 Applying enhancement...', 'loading');
+            disableButtons(true);
+
+            const url = APP_BASE_URL + '/enhance?action=apply&issueKey=' + ISSUE_KEY;
+            
+            console.log('Calling:', url);
+
+            AP.request({
+                url: url,
+                type: 'POST',
+                success: function(data) {
+                    disableButtons(false);
+                    console.log('Response:', data);
+                    
+                    try {
+                        const response = typeof data === 'string' ? JSON.parse(data) : data;
+                        
+                        if (response.success) {
+                            showResult('✅ Enhancement applied successfully!', 'success');
+                            setTimeout(function() {
+                                AP.jira.refreshIssuePage();
+                            }, 1500);
+                        } else {
+                            showResult('❌ Enhancement failed: ' + (response.error || 'Unknown error'), 'error');
+                        }
+                    } catch (e) {
+                        showResult('❌ Failed to parse response: ' + e.message, 'error');
+                        console.error('Parse error:', e, 'Data:', data);
+                    }
+                },
+                error: function(xhr, statusText, errorThrown) {
+                    disableButtons(false);
+                    console.error('Request failed:', xhr, statusText, errorThrown);
+                    showResult('❌ Request failed: ' + (statusText || 'Unknown error'), 'error');
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        console.log('Panel loaded for issue:', ISSUE_KEY);
+        console.log('App base URL:', APP_BASE_URL);
+    </script>
+</body>
+</html>

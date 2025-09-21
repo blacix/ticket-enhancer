@@ -31,7 +31,7 @@
                   "condition":"user_is_logged_in"
                }
             ],
-            "weight":100
+            "weight":1000
          }
       ]
    }

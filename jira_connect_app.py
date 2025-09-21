@@ -158,172 +158,32 @@ class JiraConnectApp:
         @self.app.route('/panel')
         # @self.jwt_required
         def serve_enhancement_panel():
-            """Serve the enhancement panel UI"""
+            """Serve the enhancement panel UI from HTML file"""
             print(f"📋 Panel called")
             issue_key = request.args.get('issueKey')
             print(f"📋 Panel called with issue: {issue_key}")
 
             # Get app base URL from environment
-            app_base_url = os.getenv('APP_BASE_URL', '')
+            app_base_url = os.getenv('APP_BASE_URL', 'https://do.nowtech.cloud')
 
-            # Simple HTML panel with enhancement button
-            panel_html = """
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>LLM Enhancement</title>
-                        <script src="https://connect-cdn.atl-paas.net/all.js"></script>
-                        <style>
-                            body { font-family: Arial, sans-serif; padding: 20px; }
-                            .btn { 
-                                background: #0052cc; 
-                                color: white; 
-                                border: none; 
-                                padding: 10px 20px; 
-                                cursor: pointer; 
-                                border-radius: 4px;
-                                margin: 5px;
-                            }
-                            .btn:hover { background: #0043a6; }
-                            .btn:disabled { background: #ccc; cursor: not-allowed; }
-                            .result { margin-top: 20px; padding: 10px; border-radius: 4px; }
-                            .success { background: #e6f4ea; border: 1px solid #34a853; }
-                            .error { background: #fce8e6; border: 1px solid #ea4335; }
-                            .loading { color: #666; }
-                            pre { 
-                                background: #f5f5f5; 
-                                padding: 10px; 
-                                border-radius: 4px; 
-                                overflow-x: auto;
-                                white-space: pre-wrap;
-                                word-wrap: break-word;
-                            }
-                        </style>
-                    </head>
+            try:
+                # Read the HTML file
+                with open('panel.html', 'r') as f:
+                    html_content = f.read()
+                # Replace placeholders with actual values
+                html_content = html_content.replace('{{ISSUE_KEY}}', issue_key or '')
+                html_content = html_content.replace('{{APP_BASE_URL}}', app_base_url)
+                return html_content
+
+            except FileNotFoundError:
+                return f"""
+                <html>
                     <body>
-                        <h3>🤖 LLM Ticket Enhancement</h3>
-                        <p>Issue: <strong>{{ issue_key }}</strong></p>
-
-                        <button class="btn" id="previewBtn" onclick="previewEnhancement()">👁️ Preview Enhancement</button>
-                        <button class="btn" id="applyBtn" onclick="applyEnhancement()">✨ Apply Enhancement</button>
-
-                        <div id="result"></div>
-
-                        <script>
-                            const APP_BASE_URL = '{{ app_base_url }}';
-                            const ISSUE_KEY = '{{ issue_key }}';
-
-                            function disableButtons(disabled) {
-                                document.getElementById('previewBtn').disabled = disabled;
-                                document.getElementById('applyBtn').disabled = disabled;
-                            }
-
-                            function showResult(message, type) {
-                                const result = document.getElementById('result');
-                                result.className = 'result ' + type;
-                                result.innerHTML = message;
-                            }
-
-                            function previewEnhancement() {
-                                showResult('🔄 Generating preview...', 'loading');
-                                disableButtons(true);
-
-                                // Use full URL to your app
-                                const url = APP_BASE_URL + '/enhance?action=preview&issueKey=' + ISSUE_KEY;
-
-                                console.log('Calling:', url);
-
-                                AP.request({
-                                    url: url,
-                                    type: 'GET',
-                                    success: function(data) {
-                                        disableButtons(false);
-                                        console.log('Response:', data);
-
-                                        try {
-                                            const response = typeof data === 'string' ? JSON.parse(data) : data;
-
-                                            if (response.success) {
-                                                showResult(
-                                                    '<h4>Preview:</h4><pre>' + 
-                                                    escapeHtml(response.enhanced_description) + 
-                                                    '</pre>',
-                                                    'success'
-                                                );
-                                            } else {
-                                                showResult('❌ Preview failed: ' + (response.error || 'Unknown error'), 'error');
-                                            }
-                                        } catch (e) {
-                                            showResult('❌ Failed to parse response: ' + e.message, 'error');
-                                            console.error('Parse error:', e, 'Data:', data);
-                                        }
-                                    },
-                                    error: function(xhr, statusText, errorThrown) {
-                                        disableButtons(false);
-                                        console.error('Request failed:', xhr, statusText, errorThrown);
-                                        showResult('❌ Request failed: ' + (statusText || 'Unknown error'), 'error');
-                                    }
-                                });
-                            }
-
-                            function applyEnhancement() {
-                                if (!confirm('Apply enhancement to this ticket?')) return;
-
-                                showResult('🔄 Applying enhancement...', 'loading');
-                                disableButtons(true);
-
-                                // Use full URL to your app
-                                const url = APP_BASE_URL + '/enhance?action=apply&issueKey=' + ISSUE_KEY;
-
-                                console.log('Calling:', url);
-
-                                AP.request({
-                                    url: url,
-                                    type: 'POST',
-                                    success: function(data) {
-                                        disableButtons(false);
-                                        console.log('Response:', data);
-
-                                        try {
-                                            const response = typeof data === 'string' ? JSON.parse(data) : data;
-
-                                            if (response.success) {
-                                                showResult('✅ Enhancement applied successfully!', 'success');
-                                                // Refresh the issue view
-                                                setTimeout(function() {
-                                                    AP.jira.refreshIssuePage();
-                                                }, 1500);
-                                            } else {
-                                                showResult('❌ Enhancement failed: ' + (response.error || 'Unknown error'), 'error');
-                                            }
-                                        } catch (e) {
-                                            showResult('❌ Failed to parse response: ' + e.message, 'error');
-                                            console.error('Parse error:', e, 'Data:', data);
-                                        }
-                                    },
-                                    error: function(xhr, statusText, errorThrown) {
-                                        disableButtons(false);
-                                        console.error('Request failed:', xhr, statusText, errorThrown);
-                                        showResult('❌ Request failed: ' + (statusText || 'Unknown error'), 'error');
-                                    }
-                                });
-                            }
-
-                            function escapeHtml(text) {
-                                const div = document.createElement('div');
-                                div.textContent = text;
-                                return div.innerHTML;
-                            }
-
-                            // Log when panel loads
-                            console.log('Panel loaded for issue:', ISSUE_KEY);
-                            console.log('App base URL:', APP_BASE_URL);
-                        </script>
+                        <h3>Error: panel.html not found</h3>
+                        <p>Please create panel.html in the same directory as your app.</p>
                     </body>
-                    </html>
-                    """
-
-            return render_template_string(panel_html, issue_key=issue_key, app_base_url=app_base_url)
+                </html>
+                """, 404
 
         @self.app.route('/enhance')
         # @self.jwt_required
