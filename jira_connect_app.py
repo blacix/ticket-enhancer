@@ -27,31 +27,22 @@ class JiraConnectApp:
     def __init__(self):
         self.app = Flask(__name__)
 
-        app_base_url = os.getenv('APP_BASE_URL', '')
-        jira_server_url = os.getenv('JIRA_SERVER_URL', '')
+        # app_base_url = os.getenv('APP_BASE_URL', '')
+        # jira_server_url = os.getenv('JIRA_SERVER_URL', '')
+        #
+        # # Build allowed origins list
+        # allowed_origins = [
+        #     app_base_url,  # Your app domain
+        #     jira_server_url,  # Your Jira instance
+        # ]
 
-        # Build allowed origins list
-        allowed_origins = [
-            app_base_url,  # Your app domain
-            jira_server_url,  # Your Jira instance
-        ]
-
-        # Also allow without trailing slash
-        allowed_origins.extend([
-            origin.rstrip('/') for origin in allowed_origins
-        ])
-
-        # Remove duplicates
-        allowed_origins = list(set(allowed_origins))
-        print(f"🔒 CORS configured for origins: {', '.join(allowed_origins)}")
-
-        # Configure CORS with restricted domains
+        # VERY PERMISSIVE CORS - Allow everything for development
         CORS(self.app,
              resources={r"/*": {
-                 "origins": allowed_origins,
+                 "origins": "*",  # Allow all origins
                  "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-                 "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "X-Atlassian-Token"],
-                 "expose_headers": ["Content-Type", "Authorization"],
+                 "allow_headers": "*",  # Allow all headers
+                 "expose_headers": "*",  # Expose all headers
                  "supports_credentials": True,
                  "max_age": 3600
              }})
@@ -71,10 +62,20 @@ class JiraConnectApp:
             json.dump(self.installed_tenants, f)
 
     def setup_routes(self):
-        # Add OPTIONS handler for preflight requests
+        """Setup all Flask routes"""
+        # Handle ALL OPTIONS requests - very permissive
         @self.app.route('/<path:path>', methods=['OPTIONS'])
-        def handle_options(path):
-            return '', 204
+        @self.app.route('/enhance', methods=['OPTIONS'])
+        @self.app.route('/panel', methods=['OPTIONS'])
+        @self.app.route('/descriptor', methods=['OPTIONS'])
+        def handle_options(path=None):
+            """Handle preflight OPTIONS requests"""
+            response = make_response('', 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = '*'
+            response.headers['Access-Control-Max-Age'] = '3600'
+            return response
 
         @self.app.route('/')
         def serve_root():
@@ -330,6 +331,7 @@ class JiraConnectApp:
             """API endpoint for enhancement operations"""
             try:
                 action = request.args.get('action', 'preview')
+                print(f'serve_enhance - action: {action}')
                 issue_key = request.args.get('issueKey')
                 custom_instructions = request.args.get('instructions', '')
 
@@ -337,9 +339,10 @@ class JiraConnectApp:
                     return jsonify({'success': False, 'error': 'Issue key required'}), 400
 
                 # Get JWT payload for user context
-                jwt_payload = getattr(request, 'jwt_payload', {})
-                base_url = jwt_payload.get('iss', '')
+                # jwt_payload = getattr(request, 'jwt_payload', {})
+                # base_url = jwt_payload.get('iss', '')
 
+                base_url = os.getenv('JIRA_SERVER_URL')
                 # Create enhancer instance using service account credentials
                 # (In production, you'd store these securely per tenant)
                 enhancer = self._create_enhancer_for_tenant(base_url)
@@ -361,6 +364,7 @@ class JiraConnectApp:
                     return jsonify({'success': False, 'error': 'Invalid action'}), 400
 
             except Exception as e:
+                print(f'serve_enhance - failed: {e}')
                 return jsonify({'success': False, 'error': str(e)}), 500
 
         @self.app.route('/demo')
@@ -396,43 +400,33 @@ class JiraConnectApp:
 
         @self.app.after_request
         def after_request(response):
-            # Get trusted domains from environment
-            app_base_url = os.getenv('APP_BASE_URL', '')
-            jira_server_url = os.getenv('JIRA_SERVER_URL', '')
+            # VERY PERMISSIVE - Allow everything
 
-            # Remove any existing X-Frame-Options
+            # Remove restrictive headers
             response.headers.pop('X-Frame-Options', None)
 
-            # Allow embedding only from Jira domain
-            response.headers['X-Frame-Options'] = f'ALLOW-FROM {jira_server_url}'
+            # Allow all origins and methods
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = '*'
+            response.headers['Access-Control-Expose-Headers'] = '*'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
 
-            # Production CSP - restrict frame-ancestors to Jira domain only
+            # Very permissive CSP
             response.headers['Content-Security-Policy'] = (
-                f"default-src 'self' {app_base_url} {jira_server_url} https://connect-cdn.atl-paas.net; "
-                f"frame-ancestors {jira_server_url} *.atlassian.net; "
-                f"script-src 'self' 'unsafe-inline' {app_base_url} https://connect-cdn.atl-paas.net; "
-                f"style-src 'self' 'unsafe-inline' {app_base_url}; "
-                f"img-src 'self' data: blob: {app_base_url} {jira_server_url}; "
-                f"connect-src 'self' {app_base_url} {jira_server_url};"
+                "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; "
+                "frame-ancestors *; "
+                "script-src * 'unsafe-inline' 'unsafe-eval'; "
+                "style-src * 'unsafe-inline'; "
+                "img-src * data: blob:; "
+                "connect-src *;"
             )
 
-            # CORS headers (Flask-CORS handles most, but be explicit)
-            origin = request.headers.get('Origin')
-            allowed_origins = [app_base_url, jira_server_url]
+            # Remove other restrictive headers
+            response.headers.pop('X-Content-Type-Options', None)
+            response.headers.pop('Strict-Transport-Security', None)
+            response.headers.pop('Referrer-Policy', None)
 
-            if origin in allowed_origins:
-                response.headers['Access-Control-Allow-Origin'] = origin
-                response.headers['Access-Control-Allow-Credentials'] = 'true'
-
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            response.headers[
-                'Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Atlassian-Token'
-            response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
-
-            # Keep important security headers
-            response.headers['X-Content-Type-Options'] = 'nosniff'
-            response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-            
             return response
 
     def jwt_required(self, f):
